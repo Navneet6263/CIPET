@@ -11,7 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/PageShell";
 import { StatusBadge } from "@/components/StatusBadge";
-import { BOOKINGS, NOTIFICATIONS, SAVED_LABS, USER_PROFILE, formatINR } from "@/MOCK_DATA";
+import { NOTIFICATIONS, SAVED_LABS, USER_PROFILE, formatINR } from "@/MOCK_DATA";
+
+import { useDemoBookings } from "@/lib/workflow-store";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Customer workspace — ServiceFlow" }] }),
@@ -19,7 +21,8 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function Dashboard() {
-  const active = BOOKINGS.filter((booking) => booking.status !== "completed");
+  const BOOKINGS = useDemoBookings();
+  const active = BOOKINGS.filter((booking) => !["completed", "cancelled"].includes(booking.status));
   const spend = BOOKINGS.reduce((total, booking) => total + booking.total, 0);
   const metrics = [
     ["Active requests", String(active.length), "+1 this week", CalendarCheck],

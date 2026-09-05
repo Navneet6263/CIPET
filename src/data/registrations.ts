@@ -1,5 +1,5 @@
 export type RegistrationStatus =
-  "Draft" | "Submitted" | "Under review" | "Action required" | "Approved";
+  "Draft" | "Submitted" | "Under review" | "Technical review" | "Action required" | "Approved";
 
 export interface RegistrationRecord {
   id: string;

@@ -10,6 +10,7 @@ import type { RequestDraft } from "@/components/request/RequestDraft";
 import { RequestSummary } from "@/components/request/RequestSummary";
 import { REQUEST_STEPS } from "@/components/request/requestSteps";
 import { PdiRegistration } from "@/components/pdi/PdiRegistration";
+import { resetWorkflow } from "@/lib/workflow-store";
 import { LABS } from "@/MOCK_DATA";
 
 const initialDraft: RequestDraft = {
@@ -75,6 +76,7 @@ function RequestWizard() {
       return;
     }
     localStorage.setItem("cipet-demo-request", JSON.stringify(draft));
+    resetWorkflow("CIP-LKO-26091", "service");
     navigate({ to: "/confirmation/$bookingId", params: { bookingId: "CIP-LKO-26091" } });
   };
 
@@ -97,7 +99,7 @@ function RequestWizard() {
                 Step {step + 1} of {REQUEST_STEPS.length} ·{" "}
                 {step === 0
                   ? "Tell us what you need and confirm the selected service."
-                  : `Complete ${REQUEST_STEPS[step].toLowerCase()} details.`}
+                  : `Complete ${REQUEST_STEPS[step]!.toLowerCase()} details.`}
               </p>
             </div>
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
@@ -140,7 +142,7 @@ function RequestWizard() {
                       </>
                     ) : (
                       <>
-                        Continue to {REQUEST_STEPS[step + 1].toLowerCase()} <ArrowRight />
+                        Continue to {REQUEST_STEPS[step + 1]!.toLowerCase()} <ArrowRight />
                       </>
                     )}
                   </Button>

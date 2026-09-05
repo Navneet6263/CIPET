@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Download, FileCheck2, FileUp, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AdminShell, SectionHeading } from "@/components/PageShell";
 import { StatusBadge } from "@/components/StatusBadge";
-import { TODAY_APPOINTMENTS } from "@/MOCK_DATA";
+import { useDemoAppointments, advanceWorkflow } from "@/lib/workflow-store";
+import { ServiceWorkflowDialog } from "@/components/ServiceWorkflowDialog";
 
 export const Route = createFileRoute("/admin/reports")({
   head: () => ({
@@ -23,7 +25,22 @@ export const Route = createFileRoute("/admin/reports")({
 });
 
 function AdminReports() {
-  const queue = TODAY_APPOINTMENTS.slice(0, 6);
+  const appointments = useDemoAppointments();
+  const [selected, setSelected] = useState<string | null>(null);
+  const queue = appointments.filter((item) =>
+    ["Technical review", "Report ready", "Dispatched", "Closed"].includes(item.stage),
+  );
+  const dispatch = () => {
+    try {
+      const ready = queue.filter((item) => item.stage === "Report ready");
+      ready.forEach((item) =>
+        advanceWorkflow(item.id, "service", "Dispatched", "Report dispatched"),
+      );
+      toast.success(`${ready.length} reports dispatched`);
+    } catch (error) {
+      toast.error(String(error));
+    }
+  };
 
   return (
     <AdminShell
@@ -34,7 +51,10 @@ function AdminReports() {
           <Button variant="outline" onClick={() => toast.success("Scanned report uploaded")}>
             <FileUp /> Upload Scanned
           </Button>
-          <Button onClick={() => toast.success("5 reports dispatched to customers")}>
+          <Button
+            onClick={dispatch}
+            disabled={!queue.some((item) => item.stage === "Report ready")}
+          >
             <Send /> Dispatch All Ready
           </Button>
         </>
@@ -42,9 +62,18 @@ function AdminReports() {
     >
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          { label: "Drafts in progress", value: "4" },
-          { label: "Awaiting signature", value: "3" },
-          { label: "Dispatched today", value: "9" },
+          {
+            label: "Technical review",
+            value: queue.filter((item) => item.stage === "Technical review").length,
+          },
+          {
+            label: "Ready to dispatch",
+            value: queue.filter((item) => item.stage === "Report ready").length,
+          },
+          {
+            label: "Dispatched / closed",
+            value: queue.filter((item) => ["Dispatched", "Closed"].includes(item.stage)).length,
+          },
         ].map((s) => (
           <div key={s.label} className="rounded-lg border border-slate-200 bg-white p-5">
             <p className="text-xs text-slate-500">{s.label}</p>
@@ -79,15 +108,12 @@ function AdminReports() {
                   <td className="px-4 py-3 text-muted-foreground">{a.technician}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={a.status} />
+                    <p className="mt-1 text-xs text-slate-500">{a.stage}</p>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toast.success(`Report generated for ${a.sampleId}`)}
-                      >
-                        <FileCheck2 /> Generate
+                      <Button size="sm" variant="outline" onClick={() => setSelected(a.id)}>
+                        <FileCheck2 /> Update status
                       </Button>
                       <Button
                         size="sm"
@@ -99,7 +125,16 @@ function AdminReports() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => toast.success(`Report sent to ${a.customer}`)}
+                        disabled={a.stage !== "Report ready"}
+                        aria-label={`Dispatch ${a.id}`}
+                        onClick={() => {
+                          try {
+                            advanceWorkflow(a.id, "service", "Dispatched", "Report dispatched");
+                            toast.success("Report dispatched");
+                          } catch (error) {
+                            toast.error(String(error));
+                          }
+                        }}
                       >
                         <Send />
                       </Button>
@@ -111,6 +146,7 @@ function AdminReports() {
           </table>
         </div>
       </div>
+      <ServiceWorkflowDialog id={selected} onClose={() => setSelected(null)} />
     </AdminShell>
   );
 }

@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Check, CheckCircle2, Clock3, FileSearch, Mail } from "lucide-react";
 import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
+import { useWorkflows } from "@/lib/workflow-store";
+import { PDI_STAGES } from "@/lib/workflow";
 
 export const Route = createFileRoute("/pdi-confirmation/$registrationId")({
   head: () => ({ meta: [{ title: "Registration submitted — ServiceFlow" }] }),
@@ -27,6 +29,8 @@ const stages = [
 
 function PdiConfirmation() {
   const { registrationId } = Route.useParams();
+  const record = useWorkflows()[registrationId];
+  const activeStep = PDI_STAGES.indexOf(record?.stage as (typeof PDI_STAGES)[number]);
   return (
     <PageShell>
       <div className="bg-[#f8f6f1] px-4 py-10 sm:px-6 sm:py-14">
@@ -39,21 +43,33 @@ function PdiConfirmation() {
               <p className="mt-4 text-xs font-bold tracking-wider text-emerald-700 uppercase">
                 Registration received
               </p>
-              <h1 className="mt-2 text-3xl font-bold text-[#0a2347]">Application submitted</h1>
+              <h1 className="mt-2 text-3xl font-bold text-[#0a2347]">
+                {record && record.stage !== "Submitted"
+                  ? `Registration: ${record.stage.toLowerCase()}`
+                  : "Application submitted"}
+              </h1>
               <p className="mt-2 text-sm text-slate-600">
                 Your reference number is <strong>{registrationId}</strong>
               </p>
             </div>
 
             <div className="p-6 sm:p-10">
+              {record && (
+                <div className="mb-5 rounded-md border border-blue-100 bg-blue-50 p-4 text-sm">
+                  <strong>Current status: {record.stage}</strong>
+                  {record.history.at(-1)?.note && (
+                    <p className="mt-1 text-slate-600">{record.history.at(-1)?.note}</p>
+                  )}
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-4">
                 {stages.map(({ label, detail, icon: Icon, state }, index) => (
                   <div key={label} className="relative rounded-md border border-slate-200 p-4">
                     <div
                       className={`grid size-8 place-items-center rounded-full ${
-                        state === "done"
+                        index < activeStep || (index === activeStep && record?.stage === "Approved")
                           ? "bg-emerald-600 text-white"
-                          : state === "current"
+                          : index === activeStep
                             ? "bg-blue-600 text-white"
                             : "bg-slate-100 text-slate-400"
                       }`}

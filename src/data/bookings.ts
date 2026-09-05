@@ -1,6 +1,8 @@
 import { LABS, SERVICES } from "@/data/services";
 import type { Booking, TimelineStep } from "@/data/types";
 
+import { TODAY_APPOINTMENTS } from "@/data/admin";
+
 const centre = LABS[0]!;
 
 function makeBooking(
@@ -47,7 +49,25 @@ export const PAST_BOOKINGS = BOOKINGS.filter(
 );
 
 export function getBooking(id: string): Booking {
-  return BOOKINGS.find((booking) => booking.id.toLowerCase() === id.toLowerCase()) ?? BOOKINGS[0]!;
+  const existing = BOOKINGS.find((booking) => booking.id.toLowerCase() === id.toLowerCase());
+  if (existing) return existing;
+  const appointment = TODAY_APPOINTMENTS.find(
+    (item) => item.sampleId.replace("SMP-", "CIP-").toLowerCase() === id.toLowerCase(),
+  );
+  if (!appointment) return BOOKINGS[0]!;
+  const service = SERVICES.find((item) => item.name === appointment.service)!;
+  return {
+    ...makeBooking(
+      Number(id.split("-").at(-1)),
+      service.id,
+      appointment.status,
+      appointment.eta,
+      0,
+      false,
+    ),
+    customer: appointment.customer,
+    company: appointment.customer,
+  };
 }
 
 export const TRACKING_TIMELINE: TimelineStep[] = [

@@ -9,7 +9,7 @@ const purposes = [
   ["Compliance testing", "Meet industry or regulatory standards"],
   ["Failure analysis", "Identify the root cause of product failure"],
   ["Other", "Custom testing or technical requirement"],
-];
+] as const;
 
 export function RequestBasics({
   draft,

@@ -4,23 +4,50 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Timeline } from "@/components/Timeline";
 import { StatusBadge } from "@/components/StatusBadge";
-import { NOTIFICATION_LOG, TRACKING_TIMELINE, type Booking } from "@/MOCK_DATA";
-
-const documents = [
-  { name: "Work Order", ready: true },
-  { name: "Test Report", ready: false },
-  { name: "Calibration Certificate", ready: false },
-  { name: "Tax Invoice", ready: true },
-];
+import type { Booking, TimelineStep } from "@/data/types";
+import { useWorkflows } from "@/lib/workflow-store";
+import { SERVICE_STAGES, bookingStatus, progress } from "@/lib/workflow";
 
 export function TrackingView({
-  booking,
+  booking: original,
   publicMode = false,
 }: {
   booking: Booking;
   publicMode?: boolean;
 }) {
-  const shareUrl = `demo.cipet.local/track/${booking.id}`;
+  const record = useWorkflows()[original.id]!;
+  const booking = {
+    ...original,
+    status: bookingStatus(record.stage),
+    progress: progress(record.stage),
+    paid: record.paid,
+  };
+  const current = SERVICE_STAGES.indexOf(record.stage as (typeof SERVICE_STAGES)[number]);
+  const timeline: TimelineStep[] = SERVICE_STAGES.map((stage, index) => {
+    const event = [...record.history].reverse().find((entry) => entry.stage === stage);
+    return {
+      title: stage,
+      state: index < current ? "done" : index === current ? "current" : "upcoming",
+      timestamp: event
+        ? new Date(event.at).toLocaleString("en-IN")
+        : index <= current
+          ? "Recorded"
+          : "Upcoming",
+      ...(event?.note ? { detail: event.note } : {}),
+    };
+  });
+  const notifications = record.history.map((event) => ({
+    message: event.note ? `${event.stage}: ${event.note}` : event.stage,
+    time: new Date(event.at).toLocaleString("en-IN"),
+    channel: "Portal",
+  }));
+  const documents = [
+    { name: "Work Order", ready: current >= 3 },
+    { name: "Test Report", ready: current >= 7 },
+    { name: "Calibration Certificate", ready: current >= 7 && booking.serviceId === "calibration" },
+    { name: "Tax Invoice", ready: record.paid },
+  ];
+  const shareUrl = `/track/${booking.id}`;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -39,15 +66,21 @@ export function TrackingView({
             <StatusBadge status={booking.status} />
           </div>
           <div className="mt-7">
-            <Timeline steps={TRACKING_TIMELINE} />
+            {record.stage === "Cancelled" ? (
+              <p className="rounded-md bg-red-50 p-4 text-sm text-red-700">
+                This request has been cancelled. See the status history below for the reason.
+              </p>
+            ) : (
+              <Timeline steps={timeline} />
+            )}
           </div>
         </section>
 
         <section className="border-t border-border pt-7">
           <h3 className="text-base font-semibold text-foreground">Notification log</h3>
           <ul className="mt-4 divide-y divide-border">
-            {NOTIFICATION_LOG.map((n) => (
-              <li key={n.message} className="flex items-center justify-between gap-3 py-3 text-sm">
+            {notifications.map((n, index) => (
+              <li key={index} className="flex items-center justify-between gap-3 py-3 text-sm">
                 <span className="text-foreground">{n.message}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {n.time} • {n.channel}
@@ -69,10 +102,20 @@ export function TrackingView({
           <dl className="mt-4 space-y-3 text-sm">
             {[
               ["Sample ID", booking.sampleId],
-              ["Current step", "Testing in progress"],
-              ["Last update", "30 minutes ago"],
-              ["Next expected", "In 4 hours"],
-              ["Estimated ready", "Sept 4, 5:00 PM"],
+              ["Current step", record.stage],
+              [
+                "Last update",
+                record.history.length
+                  ? new Date(record.history.at(-1)!.at).toLocaleString("en-IN")
+                  : "Initial record",
+              ],
+              [
+                "Next step",
+                record.stage === "Cancelled"
+                  ? "No further action"
+                  : (SERVICE_STAGES[current + 1] ?? "Complete"),
+              ],
+              ["Payment", record.paid ? "Paid" : "Awaiting payment"],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">{k}</dt>
@@ -130,7 +173,7 @@ export function TrackingView({
             <Button
               variant="outline"
               onClick={() => {
-                void navigator.clipboard?.writeText(`https://${shareUrl}`);
+                void navigator.clipboard?.writeText(`${window.location.origin}${shareUrl}`);
                 toast.success("Tracking link copied");
               }}
             >

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -16,39 +17,51 @@ import { Input } from "@/components/ui/input";
 import { AdminShell } from "@/components/PageShell";
 import { EQUIPMENT_STATUS, TODAY_APPOINTMENTS } from "@/MOCK_DATA";
 
+import { useDemoAppointments } from "@/lib/workflow-store";
+import { SERVICE_STAGES } from "@/lib/workflow";
+import { ServiceWorkflowDialog } from "@/components/ServiceWorkflowDialog";
+
 export const Route = createFileRoute("/admin/samples")({
   head: () => ({ meta: [{ title: "Sample Flow Control — CIPET ServiceFlow" }] }),
   component: SampleFlowControl,
 });
 
-const flow = [
-  ["Request review", 48],
-  ["Quotation", 32],
-  ["Sample planned", 26],
-  ["Received", 19],
-  ["Testing", 68],
-  ["Technical review", 14],
-  ["Report ready", 9],
-];
-
 const columns = [
-  { title: "Awaiting sample", count: 12, offset: 0, tone: "text-slate-700" },
-  { title: "In testing", count: 28, offset: 3, tone: "text-blue-700" },
-  { title: "Review queue", count: 7, offset: 6, tone: "text-amber-700" },
-  { title: "Ready to release", count: 9, offset: 9, tone: "text-emerald-700" },
+  {
+    title: "Intake & scheduling",
+    stages: ["Request review", "Quotation", "Payment", "Sample planned", "Received"],
+    tone: "text-slate-700",
+  },
+  { title: "In testing", stages: ["Testing"], tone: "text-blue-700" },
+  { title: "Review queue", stages: ["Technical review"], tone: "text-amber-700" },
+  {
+    title: "Delivery & closed",
+    stages: ["Report ready", "Dispatched", "Closed", "Cancelled"],
+    tone: "text-emerald-700",
+  },
 ];
 
-function WorkCard({ index }: { index: number }) {
-  const item = TODAY_APPOINTMENTS[index % TODAY_APPOINTMENTS.length]!;
+function WorkCard({
+  item,
+  index,
+  onOpen,
+}: {
+  item: ReturnType<typeof useDemoAppointments>[number];
+  index: number;
+  onOpen: () => void;
+}) {
   const priority = index % 4 === 0 ? "High" : index % 3 === 0 ? "Low" : "Medium";
   return (
     <button
-      onClick={() => toast.success(`${item.sampleId} opened`)}
+      onClick={onOpen}
       className="w-full rounded-md border border-slate-200 bg-white p-3 text-left transition hover:border-blue-300 hover:shadow-sm"
     >
-      <span className="text-[10px] font-semibold text-slate-400">CIP-LKO-{26091 + index}</span>
+      <span className="text-[10px] font-semibold text-slate-400">{item.id}</span>
       <strong className="mt-1 block text-sm text-[#0a2347]">{item.customer}</strong>
       <span className="mt-0.5 block text-xs text-slate-500">{item.service}</span>
+      <span className="mt-2 inline-block rounded bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700">
+        {item.stage} · Update status
+      </span>
       <span className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-slate-500">
         <span className="flex items-center gap-1">
           <Clock3 className="size-3" /> {index % 2 ? "2 days" : "1 day"}
@@ -81,6 +94,15 @@ function WorkCard({ index }: { index: number }) {
 }
 
 function SampleFlowControl() {
+  const appointments = useDemoAppointments();
+  const [selected, setSelected] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const rows = appointments.filter((item) =>
+    `${item.id} ${item.customer} ${item.service}`.toLowerCase().includes(query.toLowerCase()),
+  );
+  const flow = SERVICE_STAGES.map(
+    (stage) => [stage, appointments.filter((item) => item.stage === stage).length] as const,
+  );
   return (
     <AdminShell
       title="Today at Lucknow Centre"
@@ -92,7 +114,7 @@ function SampleFlowControl() {
       }
     >
       <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <ol className="grid gap-4 sm:grid-cols-4 xl:grid-cols-7">
+        <ol className="grid gap-4 sm:grid-cols-4 xl:grid-cols-10">
           {flow.map(([label, count], index) => (
             <li key={label} className="relative text-center">
               {index < flow.length - 1 && (
@@ -145,7 +167,12 @@ function SampleFlowControl() {
             <Button variant="outline">All priorities</Button>
             <div className="relative min-w-56 flex-1">
               <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-              <Input className="pl-9" placeholder="Search request, client or service" />
+              <Input
+                className="pl-9"
+                placeholder="Search request, client or service"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
             </div>
           </div>
 
@@ -158,17 +185,21 @@ function SampleFlowControl() {
                 <div className="flex items-center justify-between px-1 pb-3">
                   <h2 className={`text-sm font-bold ${column.tone}`}>{column.title}</h2>
                   <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                    {column.count}
+                    {rows.filter((item) => column.stages.includes(item.stage)).length}
                   </span>
                 </div>
                 <div className="space-y-3">
-                  {[0, 1, 2].map((item) => (
-                    <WorkCard key={item} index={column.offset + item} />
-                  ))}
+                  {rows
+                    .filter((item) => column.stages.includes(item.stage))
+                    .map((item, index) => (
+                      <WorkCard
+                        key={item.id}
+                        item={item}
+                        index={index}
+                        onOpen={() => setSelected(item.id)}
+                      />
+                    ))}
                 </div>
-                <button className="mt-3 px-1 text-xs font-semibold text-blue-700">
-                  + {Math.max(column.count - 3, 0)} more
-                </button>
               </div>
             ))}
           </section>
@@ -224,6 +255,7 @@ function SampleFlowControl() {
           </section>
         </aside>
       </div>
+      <ServiceWorkflowDialog id={selected} onClose={() => setSelected(null)} />
     </AdminShell>
   );
 }

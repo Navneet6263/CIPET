@@ -9,6 +9,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PageShell } from "@/components/PageShell";
 import { formatINR, getBooking } from "@/MOCK_DATA";
 
+import { recordPayment, useWorkflows } from "@/lib/workflow-store";
+
 export const Route = createFileRoute("/payment/$bookingId")({
   loader: ({ params }) => ({ booking: getBooking(params.bookingId) }),
   head: ({ loaderData }) => ({
@@ -26,10 +28,17 @@ const methods = [
 
 function Payment() {
   const { booking } = Route.useLoaderData();
+  const record = useWorkflows()[booking.id]!;
   const navigate = useNavigate();
   const [method, setMethod] = useState("upi");
 
   const pay = () => {
+    try {
+      recordPayment(booking.id);
+    } catch (error) {
+      toast.error(String(error));
+      return;
+    }
     toast.success("Demo payment completed", { description: formatINR(booking.total) });
     navigate({ to: "/payment-success/$bookingId", params: { bookingId: booking.id } });
   };
@@ -50,7 +59,13 @@ function Payment() {
               <p className="text-xs font-bold tracking-[0.14em] text-blue-700 uppercase">
                 Quotation approved
               </p>
-              <h1 className="mt-1 text-3xl font-bold text-[#0a2347]">Review quotation and pay</h1>
+              <h1 className="mt-1 text-3xl font-bold text-[#0a2347]">
+                {record.paid
+                  ? "Payment received"
+                  : record.stage === "Cancelled"
+                    ? "Request cancelled"
+                    : "Review quotation and pay"}
+              </h1>
               <p className="mt-2 text-sm text-slate-500">
                 Secure the request before scheduling and testing.
               </p>
@@ -202,7 +217,7 @@ function Payment() {
                   <Lock className="size-3.5 text-emerald-600" /> Secure demo payment · Encrypted
                   session
                 </p>
-                <Button onClick={pay}>
+                <Button onClick={pay} disabled={record.paid || record.stage === "Cancelled"}>
                   Pay {formatINR(booking.total)} <Lock />
                 </Button>
               </div>

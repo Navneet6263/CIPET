@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { BellRing, CheckCircle2, Download, Search, XCircle } from "lucide-react";
+import { BellRing, CheckCircle2, Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,18 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { AdminShell } from "@/components/PageShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
-import { LABS, TODAY_APPOINTMENTS, type Appointment } from "@/MOCK_DATA";
+import { LABS } from "@/MOCK_DATA";
+import { useDemoAppointments, advanceWorkflow } from "@/lib/workflow-store";
+import { nextStages } from "@/lib/workflow";
+import { ServiceWorkflowDialog } from "@/components/ServiceWorkflowDialog";
 
 export const Route = createFileRoute("/admin/appointments")({
   head: () => ({
@@ -45,16 +40,16 @@ export const Route = createFileRoute("/admin/appointments")({
 });
 
 function AdminAppointments() {
+  const appointments = useDemoAppointments();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [lab, setLab] = useState("all");
   const [selected, setSelected] = useState<string[]>([]);
-  const [detail, setDetail] = useState<Appointment | null>(null);
-  const [page, setPage] = useState(1);
+  const [detail, setDetail] = useState<string | null>(null);
 
   const rows = useMemo(
     () =>
-      TODAY_APPOINTMENTS.filter(
+      appointments.filter(
         (a) =>
           (status === "all" || a.status === status) &&
           (lab === "all" || a.lab === lab) &&
@@ -62,7 +57,7 @@ function AdminAppointments() {
             .toLowerCase()
             .includes(query.trim().toLowerCase()),
       ),
-    [query, status, lab],
+    [query, status, lab, appointments],
   );
 
   const toggle = (id: string) =>
@@ -98,6 +93,7 @@ function AdminAppointments() {
             <SelectItem value="in-progress">In Progress</SelectItem>
             <SelectItem value="ready">Ready</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
         <Select value={lab} onValueChange={setLab}>
@@ -125,11 +121,20 @@ function AdminAppointments() {
             size="sm"
             variant="outline"
             onClick={() => {
-              toast.success(`${selected.length} appointments marked complete`);
+              try {
+                selected.forEach((sampleId) => {
+                  const item = appointments.find((row) => row.sampleId === sampleId)!;
+                  const next = nextStages("service", item.stage)[0];
+                  if (next) advanceWorkflow(item.id, "service", next, "Bulk next-stage update");
+                });
+                toast.success("Selected requests advanced to their next stage");
+              } catch (error) {
+                toast.error(String(error));
+              }
               setSelected([]);
             }}
           >
-            <CheckCircle2 /> Mark All Complete
+            <CheckCircle2 /> Advance selected
           </Button>
           <Button
             size="sm"
@@ -182,6 +187,7 @@ function AdminAppointments() {
                 <td className="px-4 py-3 text-muted-foreground">{a.lab}</td>
                 <td className="px-4 py-3">
                   <StatusBadge status={a.status} />
+                  <p className="mt-1 text-xs text-slate-500">{a.stage}</p>
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -199,15 +205,8 @@ function AdminAppointments() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="outline" onClick={() => setDetail(a)}>
-                      Details
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => toast.success(`${a.sampleId} marked complete`)}
-                    >
-                      <CheckCircle2 />
+                    <Button size="sm" variant="outline" onClick={() => setDetail(a.id)}>
+                      Update status
                     </Button>
                     <Button
                       size="sm"
@@ -215,13 +214,6 @@ function AdminAppointments() {
                       onClick={() => toast.success(`Notification sent to ${a.customer}`)}
                     >
                       <BellRing />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => toast.error(`${a.sampleId} cancellation requested`)}
-                    >
-                      <XCircle />
                     </Button>
                   </div>
                 </td>
@@ -231,64 +223,10 @@ function AdminAppointments() {
         </table>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">Showing 1-{rows.length} of 150 appointments</p>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Previous
-          </Button>
-          <span className="grid place-items-center px-2 text-sm text-muted-foreground">
-            Page {page}
-          </span>
-          <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)}>
-            Next
-          </Button>
-        </div>
-      </div>
-
-      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{detail?.sampleId}</DialogTitle>
-            <DialogDescription>{detail?.service}</DialogDescription>
-          </DialogHeader>
-          {detail && (
-            <dl className="space-y-2 text-sm">
-              {[
-                ["Customer", detail.customer],
-                ["Laboratory", detail.lab],
-                ["Slot", detail.time],
-                ["Technician", detail.technician],
-                ["ETA", detail.eta],
-                ["Priority", detail.priority],
-              ].map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">{k}</dt>
-                  <dd className="font-medium text-foreground">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetail(null)}>
-              Close
-            </Button>
-            <Button
-              onClick={() => {
-                toast.success("Appointment updated");
-                setDetail(null);
-              }}
-            >
-              Save changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <p className="mt-4 text-sm text-muted-foreground">
+        Showing {rows.length} of {appointments.length} appointments
+      </p>
+      <ServiceWorkflowDialog id={detail} onClose={() => setDetail(null)} />
     </AdminShell>
   );
 }

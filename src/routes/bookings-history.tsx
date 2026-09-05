@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/select";
 import { PageShell } from "@/components/PageShell";
 import { StatusBadge } from "@/components/StatusBadge";
-import { BOOKINGS, formatINR } from "@/MOCK_DATA";
+import { formatINR } from "@/MOCK_DATA";
+
+import { useDemoBookings } from "@/lib/workflow-store";
 
 export const Route = createFileRoute("/bookings-history")({
   head: () => ({
@@ -32,19 +34,20 @@ export const Route = createFileRoute("/bookings-history")({
 });
 
 function BookingsHistory() {
+  const bookings = useDemoBookings();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
 
   const rows = useMemo(
     () =>
-      BOOKINGS.filter(
+      bookings.filter(
         (b) =>
           (status === "all" || b.status === status) &&
           `${b.id} ${b.serviceName} ${b.labName} ${b.sampleId}`
             .toLowerCase()
             .includes(query.trim().toLowerCase()),
       ),
-    [query, status],
+    [query, status, bookings],
   );
 
   return (
@@ -134,7 +137,7 @@ function BookingsHistory() {
             </table>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            Showing {rows.length} of {BOOKINGS.length} requests
+            Showing {rows.length} of {bookings.length} requests
           </p>
         </div>
       </div>

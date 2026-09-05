@@ -19,6 +19,8 @@ import { PdiApplicantUnit } from "@/components/pdi/PdiApplicantUnit";
 import { PdiPeopleProducts } from "@/components/pdi/PdiPeopleProducts";
 import { PdiFinalize } from "@/components/pdi/PdiFinalize";
 
+import { resetWorkflow } from "@/lib/workflow-store";
+
 const initialDraft: PdiDraft = {
   applicant: {
     name: "Amit Kumar",
@@ -183,6 +185,7 @@ export function PdiRegistration({ lab, service }: { lab: Lab; service: LabServic
       return;
     }
     localStorage.setItem("pdi-registration-submitted", JSON.stringify(draft));
+    resetWorkflow("PDI-LKO-26018", "pdi");
     navigate({
       to: "/pdi-confirmation/$registrationId",
       params: { registrationId: "PDI-LKO-26018" },

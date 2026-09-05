@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { AdminShell } from "@/components/PageShell";
 import { EQUIPMENT_STATUS, TODAY_APPOINTMENTS } from "@/MOCK_DATA";
 
+import { useDemoAppointments, useWorkflows } from "@/lib/workflow-store";
+import { PDI_REGISTRATIONS } from "@/data/registrations";
+
 export const Route = createFileRoute("/admin/dashboard")({
   head: () => ({ meta: [{ title: "Lucknow Operations — CIPET ServiceFlow" }] }),
   component: AdminDashboard,
@@ -36,6 +39,11 @@ const activities = [
 ];
 
 function AdminDashboard() {
+  const appointments = useDemoAppointments();
+  const workflows = useWorkflows();
+  const pendingPdi = PDI_REGISTRATIONS.filter(
+    (item) => workflows[item.id]!.stage !== "Approved",
+  ).length;
   return (
     <AdminShell
       title="Lucknow Operations"
@@ -55,7 +63,12 @@ function AdminDashboard() {
         {metrics.map(([label, value, delta, tone]) => (
           <div key={label} className="p-5">
             <p className="text-xs font-medium text-slate-500">{label}</p>
-            <p className="mt-2 text-2xl font-bold text-[#0a2347]">{value}</p>
+            <p className="mt-2 text-2xl font-bold text-[#0a2347]">
+              {label === "Pending requests"
+                ? appointments.filter((item) => !["Closed", "Cancelled"].includes(item.stage))
+                    .length
+                : value}
+            </p>
             <p className={`mt-2 text-[11px] font-semibold ${tone}`}>{delta}</p>
           </div>
         ))}
@@ -70,7 +83,7 @@ function AdminDashboard() {
         </span>
         <span className="min-w-0 flex-1">
           <strong className="block text-sm text-[#0a2347]">
-            3 PDI registrations need attention
+            {pendingPdi} PDI registrations need attention
           </strong>
           <span className="mt-1 block text-xs text-slate-500">
             Review company details, product standards and certification evidence.
@@ -107,10 +120,10 @@ function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {TODAY_APPOINTMENTS.slice(0, 7).map((item, index) => (
+                {appointments.slice(0, 7).map((item, index) => (
                   <tr key={item.sampleId} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-semibold text-[#0a2347]">
-                      CIP-LKO-{26091 + index}
+                      <Link to="/admin/appointments">{item.id}</Link>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{item.customer}</td>
                     <td className="px-4 py-3 text-slate-600">{item.service}</td>
@@ -119,7 +132,7 @@ function AdminDashboard() {
                       <span
                         className={`rounded-full px-2 py-1 font-semibold ${index < 2 ? "bg-blue-50 text-blue-700" : index < 4 ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}
                       >
-                        {index < 2 ? "Testing" : index < 4 ? "Technical review" : "Planning"}
+                        {item.stage}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-600">

@@ -40,11 +40,13 @@ const times = [
 ];
 const statuses: Status[] = ["pending", "in-progress", "ready", "completed", "in-progress"];
 
+const appointmentServices = SERVICES.filter((service) => service.id !== "pdi-registration");
+
 export const TODAY_APPOINTMENTS: Appointment[] = times.map((time, index) => ({
   time,
   sampleId: `SMP-LKO-${26091 + index}`,
   customer: customers[index % customers.length]!,
-  service: SERVICES[index % SERVICES.length]!.name,
+  service: appointmentServices[index % appointmentServices.length]!.name,
   lab: LABS[0]!.shortName,
   status: statuses[index % statuses.length]!,
   priority: index % 5 === 0 ? "High" : index % 7 === 0 ? "Urgent" : "Normal",
