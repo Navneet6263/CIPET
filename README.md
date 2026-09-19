@@ -1,29 +1,39 @@
-# Welcome to your Lovable project
+# ServiceFlow
 
-This project was built with [Lovable](https://lovable.dev).
+Industry services frontend with customer requests, manufacturer registration,
+laboratory operations, report tracking and demonstration payment flows.
 
-## Build with Lovable
+## Run locally
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Use Node.js 22.18+ and npm.
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+npm ci
 npm run dev
 ```
 
-## Built with
+Open http://localhost:8080.
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+## Verify and build
+
+```sh
+npm run lint
+npx tsc --noEmit
+node --test tests/workflow.test.mjs
+npm run build
+```
+
+The app uses React, TypeScript, TanStack Start, Tailwind CSS and Nitro.
+The build uses standard framework plugins directly. Nitro selects the deployment
+target from the build environment, including Vercel.
+
+For Vercel, import this repository with the repository root as the project root,
+select TanStack Start, and use `npm run build`. Leave the output directory automatic.
+See the [TanStack Start deployment guide](https://vercel.com/docs/frameworks/full-stack/tanstack-start).
+
+## Demonstration
+
+See [DEMO.md](./DEMO.md) for the complete status workflow walkthrough.
+Application data is illustrative. Status changes persist in browser storage and
+sync between tabs on the same origin. There is no backend, live payment processing
+or cross-device data synchronization.
